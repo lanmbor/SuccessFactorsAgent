@@ -1,5 +1,6 @@
 # tests/test_auth.py
 import base64
+import urllib.parse
 import pytest
 import respx
 import httpx
@@ -151,7 +152,6 @@ async def test_exchange_token_posts_correct_fields(cfg):
     body = request.content.decode()
     form_fields = dict(pair.split("=", 1) for pair in body.split("&"))
 
-    import urllib.parse
     decoded_fields = {k: urllib.parse.unquote_plus(v) for k, v in form_fields.items()}
 
     assert decoded_fields["grant_type"] == "urn:ietf:params:oauth:grant-type:saml2-bearer"

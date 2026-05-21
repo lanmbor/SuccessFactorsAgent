@@ -1,4 +1,5 @@
 # sf/auth.py
+import asyncio
 import uuid
 import base64
 import httpx
@@ -7,13 +8,14 @@ from pathlib import Path
 from lxml import etree
 from signxml import XMLSigner
 from signxml.algorithms import SignatureConstructionMethod
+from config import Config
 
 SAML = "urn:oasis:names:tc:SAML:2.0:assertion"
 BEARER = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
 PASSWORD_CLASS = "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"
 
 
-def build_assertion(config) -> tuple[etree._Element, str]:
+def build_assertion(config: Config) -> tuple[etree._Element, str]:
     assertion_id = "_" + uuid.uuid4().hex
     now = datetime.now(timezone.utc)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
@@ -74,7 +76,7 @@ def sign_assertion(
     return etree.tostring(signed, encoding="unicode")
 
 
-async def exchange_token(config, signed_xml: str) -> tuple[str, datetime]:
+async def exchange_token(config: Config, signed_xml: str) -> tuple[str, datetime]:
     assertion_b64 = base64.b64encode(signed_xml.encode()).decode()
     async with httpx.AsyncClient() as client:
         r = await client.post(
@@ -94,17 +96,19 @@ async def exchange_token(config, signed_xml: str) -> tuple[str, datetime]:
 
 
 class SFAuth:
-    def __init__(self, config):
+    def __init__(self, config: Config) -> None:
         self._config = config
         self._token: str | None = None
         self._expires_at: datetime | None = None
         self._private_key_pem: bytes = Path(config.SF_PRIVATE_KEY_PATH).read_bytes()
+        self._lock = asyncio.Lock()
 
     async def get_token(self) -> str:
-        if self._token and self._expires_at:
-            if datetime.now(timezone.utc) < self._expires_at - timedelta(minutes=5):
-                return self._token
-        assertion, assertion_id = build_assertion(self._config)
-        signed_xml = sign_assertion(assertion, assertion_id, self._private_key_pem)
-        self._token, self._expires_at = await exchange_token(self._config, signed_xml)
-        return self._token
+        async with self._lock:
+            if self._token and self._expires_at:
+                if datetime.now(timezone.utc) < self._expires_at - timedelta(minutes=5):
+                    return self._token
+            assertion, assertion_id = build_assertion(self._config)
+            signed_xml = sign_assertion(assertion, assertion_id, self._private_key_pem)
+            self._token, self._expires_at = await exchange_token(self._config, signed_xml)
+            return self._token
