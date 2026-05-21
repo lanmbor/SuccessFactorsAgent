@@ -1,10 +1,11 @@
 # tests/test_auth.py
+import base64
 import pytest
 import respx
 import httpx
 from datetime import datetime, timezone, timedelta
 from lxml import etree
-from sf.auth import build_assertion, sign_assertion, SFAuth
+from sf.auth import build_assertion, sign_assertion, SFAuth, exchange_token
 
 SAML = "urn:oasis:names:tc:SAML:2.0:assertion"
 
@@ -129,3 +130,37 @@ async def test_get_token_refreshes_when_expired(auth_with_key):
         token = await auth_with_key.get_token()
     assert token == "tok_new"
     assert route.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_exchange_token_posts_correct_fields(cfg):
+    signed_xml = "<saml>test-xml</saml>"
+    expected_assertion = base64.b64encode(signed_xml.encode()).decode()
+
+    with respx.mock:
+        route = respx.post("https://test.successfactors.com/oauth/token").mock(
+            return_value=httpx.Response(200, json={"access_token": "tok_exchange", "expires_in": 43200})
+        )
+        result = await exchange_token(cfg, signed_xml)
+
+    # Verify the request was made once
+    assert route.call_count == 1
+
+    # Inspect the posted form data
+    request = route.calls[0].request
+    body = request.content.decode()
+    form_fields = dict(pair.split("=", 1) for pair in body.split("&"))
+
+    import urllib.parse
+    decoded_fields = {k: urllib.parse.unquote_plus(v) for k, v in form_fields.items()}
+
+    assert decoded_fields["grant_type"] == "urn:ietf:params:oauth:grant-type:saml2-bearer"
+    assert decoded_fields["assertion"] == expected_assertion
+
+    # Verify the return value is a tuple of (str, datetime)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    access_token, expires_at = result
+    assert isinstance(access_token, str)
+    assert access_token == "tok_exchange"
+    assert isinstance(expires_at, datetime)
