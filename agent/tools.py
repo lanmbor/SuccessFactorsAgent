@@ -1,5 +1,6 @@
 # agent/tools.py
 import json
+import httpx
 from lxml import etree
 from sf.client import SFClient
 
@@ -15,7 +16,7 @@ async def sf_list_entities(client: SFClient) -> str:
 async def sf_get_schema(client: SFClient, entity_name: str) -> str:
     xml_text = await client.get_metadata()
     root = etree.fromstring(xml_text.encode())
-    matches = root.xpath(f"//*[local-name()='EntityType'][@Name='{entity_name}']")
+    matches = root.xpath("//*[local-name()='EntityType'][@Name=$name]", name=entity_name)
     if not matches:
         return f"Entity '{entity_name}' not found in metadata."
     entity_type = matches[0]
@@ -36,7 +37,7 @@ async def sf_query(client: SFClient, entity_name: str, **kwargs) -> str:
     try:
         result = await client.query(entity_name, **kwargs)
         return json.dumps(result, indent=2)
-    except Exception as e:
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
         return f"Query error: {e}"
 
 
@@ -44,7 +45,7 @@ async def sf_create(client: SFClient, entity_name: str, data: dict) -> str:
     try:
         result = await client.create(entity_name, data)
         return json.dumps(result, indent=2)
-    except Exception as e:
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
         return f"Create error: {e}"
 
 
@@ -52,7 +53,7 @@ async def sf_update(client: SFClient, entity_name: str, key: str, data: dict) ->
     try:
         await client.update(entity_name, key, data)
         return "Updated successfully."
-    except Exception as e:
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
         return f"Update error: {e}"
 
 
@@ -60,7 +61,7 @@ async def sf_delete(client: SFClient, entity_name: str, key: str) -> str:
     try:
         await client.delete(entity_name, key)
         return "Deleted successfully."
-    except Exception as e:
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
         return f"Delete error: {e}"
 
 
@@ -95,7 +96,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "entity_name": {"type": "string"},
+                    "entity_name": {"type": "string", "description": "OData entity type name, e.g. 'PerPerson', 'EmpJob'"},
                     "filter": {"type": "string", "description": "OData $filter, e.g. \"department eq 'Engineering'\""},
                     "select": {"type": "string", "description": "Comma-separated field names"},
                     "top": {"type": "integer", "description": "Max records to return"},
@@ -115,7 +116,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "entity_name": {"type": "string"},
+                    "entity_name": {"type": "string", "description": "OData entity type name, e.g. 'PerPerson', 'EmpJob'"},
                     "data": {"type": "object", "description": "Field values for the new record"},
                 },
                 "required": ["entity_name", "data"],
@@ -130,7 +131,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "entity_name": {"type": "string"},
+                    "entity_name": {"type": "string", "description": "OData entity type name, e.g. 'PerPerson', 'EmpJob'"},
                     "key": {"type": "string", "description": "OData key, e.g. \"userId='U001'\" or composite \"userId='U001',startDate=datetime'2024-01-01T00:00:00'\""},
                     "data": {"type": "object", "description": "Fields and values to update"},
                 },
@@ -146,7 +147,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "entity_name": {"type": "string"},
+                    "entity_name": {"type": "string", "description": "OData entity type name, e.g. 'PerPerson', 'EmpJob'"},
                     "key": {"type": "string", "description": "OData key string, e.g. \"userId='U001'\""},
                 },
                 "required": ["entity_name", "key"],

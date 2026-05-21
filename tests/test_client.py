@@ -26,9 +26,8 @@ async def test_query_sends_get_with_odata_params(client):
         )
         result = await client.query("PerPerson", filter="userId eq 'U001'", top=10)
     assert result == {"d": {"results": []}}
-    assert "$filter=userId+eq+%27U001%27" in str(route.calls[0].request.url) or \
-           "%24filter" in str(route.calls[0].request.url) or \
-           "$filter" in str(route.calls[0].request.url)
+    url_str = str(route.calls[0].request.url)
+    assert "$filter" in url_str or "%24filter" in url_str
 
 
 @pytest.mark.asyncio
