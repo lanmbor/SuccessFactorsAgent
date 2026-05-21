@@ -63,3 +63,6 @@ class SFClient:
             f"{self._base_url}/odata/v2/{entity}({key})", headers=headers
         )
         r.raise_for_status()
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
