@@ -28,13 +28,17 @@ def register_routes(fastapi_app, agent: Agent, config: Config) -> None:
     )
 
     if config.TELEGRAM_WEBHOOK_URL:
+        import secrets
         from starlette.requests import Request
-        from starlette.responses import Response
+        from starlette.responses import Response, PlainTextResponse
+
+        _secret = secrets.token_hex(32)
 
         async def telegram_webhook(request: Request) -> Response:
+            if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != _secret:
+                return PlainTextResponse("Forbidden", status_code=403)
             data = await request.json()
             update = Update.de_json(data, bot_app.bot)
-            await bot_app.initialize()
             await bot_app.process_update(update)
             return Response()
 
@@ -43,10 +47,11 @@ def register_routes(fastapi_app, agent: Agent, config: Config) -> None:
         async def _set_webhook():
             await bot_app.initialize()
             await bot_app.bot.set_webhook(
-                url=f"{config.TELEGRAM_WEBHOOK_URL}/telegram/webhook"
+                url=f"{config.TELEGRAM_WEBHOOK_URL}/telegram/webhook",
+                secret_token=_secret,
             )
 
-        asyncio.get_event_loop().run_until_complete(_set_webhook())
+        fastapi_app.add_event_handler("startup", _set_webhook)
     else:
         def _run_polling():
             loop = asyncio.new_event_loop()

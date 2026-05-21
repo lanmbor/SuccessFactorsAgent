@@ -11,7 +11,7 @@ def extract_meta_message(payload: dict):
             return None
         msg = messages[0]
         return msg["from"], msg["text"]["body"]
-    except (KeyError, IndexError):
+    except (KeyError, IndexError, TypeError):
         return None
 
 
@@ -56,7 +56,10 @@ def _register_meta_routes(fastapi_app, agent: Agent, config: Config) -> None:
             sender, text = result
             session_id = f"whatsapp:{sender}"
             response = await agent.chat(session_id, text)
-            await send_meta_reply(sender, response, config)
+            try:
+                await send_meta_reply(sender, response, config)
+            except Exception:
+                pass  # don't fail the webhook if the reply fails
         return JSONResponse({"status": "ok"})
 
 
@@ -64,12 +67,19 @@ def _register_twilio_routes(fastapi_app, agent: Agent, config: Config) -> None:
     from starlette.requests import Request
     from starlette.responses import PlainTextResponse
     from twilio.twiml.messaging_response import MessagingResponse
+    from twilio.request_validator import RequestValidator
 
     @fastapi_app.post("/whatsapp/twilio")
     async def twilio_webhook(request: Request):
         form = await request.form()
-        sender = form.get("From", "")
-        text = form.get("Body", "")
+        form_dict = dict(form)
+        url = str(request.url)
+        signature = request.headers.get("X-Twilio-Signature", "")
+        validator = RequestValidator(config.TWILIO_AUTH_TOKEN)
+        if not validator.validate(url, form_dict, signature):
+            return PlainTextResponse("Forbidden", status_code=403)
+        sender = form_dict.get("From", "")
+        text = form_dict.get("Body", "")
         if sender and text:
             session_id = f"whatsapp:{sender}"
             response_text = await agent.chat(session_id, text)
