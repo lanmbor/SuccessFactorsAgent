@@ -1,6 +1,7 @@
 # agent/core.py
 import json
 import litellm
+from typing import Any
 from agent.tools import TOOLS, sf_list_entities, sf_get_schema, sf_query, sf_create, sf_update, sf_delete
 from sf.client import SFClient
 from config import Config
@@ -13,8 +14,9 @@ When asked for data:
 2. Call sf_get_schema(entity_name) to learn the correct field names before filtering.
 3. Call sf_query() with the appropriate parameters.
 
-Before any write operation, confirm with the user what will be changed.
-Before calling sf_delete(), always summarize the record to be deleted and get explicit confirmation."""
+Before calling sf_create(), sf_update(), or sf_delete(), summarize the operation and confirm with the user before proceeding."""
+
+MAX_TOOL_ROUNDS = 20
 
 
 class Agent:
@@ -28,7 +30,7 @@ class Agent:
             self._sessions[session_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
         return self._sessions[session_id]
 
-    async def _dispatch(self, name: str, args: dict[str, object]) -> str:
+    async def _dispatch(self, name: str, args: dict[str, Any]) -> str:
         if name == "sf_list_entities":
             return await sf_list_entities(self._client)
         if name == "sf_get_schema":
@@ -60,10 +62,12 @@ class Agent:
         if self._config.LLM_API_BASE:
             kwargs["api_base"] = self._config.LLM_API_BASE
 
-        while True:
+        for _ in range(MAX_TOOL_ROUNDS):
             response = await litellm.acompletion(**kwargs)
             msg = response.choices[0].message
-            assistant_entry: dict = {"role": "assistant", "content": msg.content}
+            assistant_entry: dict = {"role": "assistant"}
+            if msg.content is not None:
+                assistant_entry["content"] = msg.content
             if msg.tool_calls:
                 assistant_entry["tool_calls"] = [
                     {
@@ -76,9 +80,15 @@ class Agent:
             history.append(assistant_entry)
 
             if not msg.tool_calls:
-                return msg.content
+                return msg.content or ""
 
             for tc in msg.tool_calls:
-                args = json.loads(tc.function.arguments)
-                result = await self._dispatch(tc.function.name, args)
+                try:
+                    args = json.loads(tc.function.arguments)
+                except json.JSONDecodeError as e:
+                    result = f"Tool call failed: invalid JSON arguments — {e}"
+                    args = {}
+                else:
+                    result = await self._dispatch(tc.function.name, args)
                 history.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+        return "Agent exceeded maximum tool-call rounds without a final response."
