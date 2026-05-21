@@ -1,0 +1,58 @@
+<h2>Bot Integrations</h2>
+<p class="subtitle">Section 4 of 4 — Telegram and WhatsApp access to the same agent</p>
+
+<div class="section">
+  <h3>Shared Agent Core</h3>
+  <p style="color:#94a3b8;font-size:13px">All three frontends funnel messages into the same agent core. Bots are thin adapters — they translate platform messages into the agent's input format and route replies back.</p>
+</div>
+
+<div class="section">
+  <h3>Telegram</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1e293b;border-radius:6px;padding:14px">
+      <div style="color:#38bdf8;font-weight:bold;margin-bottom:8px">Library</div>
+      <div style="color:#94a3b8;font-size:13px"><code>python-telegram-bot</code> v21+</div>
+      <div style="color:#64748b;font-size:12px;margin-top:6px">Async, supports both polling (local) and webhooks (cloud). Polling mode works out-of-the-box with no public URL needed.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:14px">
+      <div style="color:#38bdf8;font-weight:bold;margin-bottom:8px">Modes</div>
+      <div style="color:#94a3b8;font-size:13px"><strong style="color:#34d399">Local:</strong> polling (no server needed)</div>
+      <div style="color:#94a3b8;font-size:13px"><strong style="color:#38bdf8">Cloud:</strong> webhook → FastAPI endpoint</div>
+      <div style="color:#64748b;font-size:12px;margin-top:6px">Switched automatically based on <code>TELEGRAM_WEBHOOK_URL</code> in .env</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>WhatsApp</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1e293b;border-radius:6px;padding:14px">
+      <div style="color:#34d399;font-weight:bold;margin-bottom:8px">Via Meta Cloud API</div>
+      <div style="color:#94a3b8;font-size:13px">WhatsApp Business Platform (free tier available)</div>
+      <div style="color:#64748b;font-size:12px;margin-top:6px">Requires: public HTTPS URL for webhook verification. Best for cloud deployment.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:14px">
+      <div style="color:#a78bfa;font-weight:bold;margin-bottom:8px">Via Twilio (alternative)</div>
+      <div style="color:#94a3b8;font-size:13px">Twilio WhatsApp sandbox</div>
+      <div style="color:#64748b;font-size:12px;margin-top:6px">Easier to set up locally with ngrok. Paid service but simpler API. Good for testing.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Message Flow</h3>
+  <div style="background:#0f172a;padding:16px;border-radius:8px;font-family:monospace;font-size:12px;line-height:2">
+    <div><span style="color:#64748b">Telegram/WhatsApp </span><span style="color:#e2e8f0"> → Adapter extracts text + user ID</span></div>
+    <div><span style="color:#64748b">Adapter           </span><span style="color:#e2e8f0"> → Calls <span style="color:#38bdf8">agent.chat(user_id, message)</span> (same as Chainlit)</span></div>
+    <div><span style="color:#64748b">Agent             </span><span style="color:#e2e8f0"> → Runs ReAct loop, calls SF tools as needed</span></div>
+    <div><span style="color:#64748b">Agent             </span><span style="color:#e2e8f0"> → Returns plain text response</span></div>
+    <div><span style="color:#64748b">Adapter           </span><span style="color:#e2e8f0"> → Sends reply back via Telegram/WhatsApp API</span></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Per-User Conversation Memory</h3>
+  <p style="color:#94a3b8;font-size:13px">Each user (identified by platform + user ID) gets their own conversation history stored in memory during the session. Chainlit handles this automatically; the bots replicate the same pattern with an in-memory dict keyed by <code>platform:user_id</code>.</p>
+</div>
+
+<p style="color:#94a3b8;margin-top:24px;text-align:center">Does this complete the picture? If you're happy with all 4 sections, I'll write the full design doc and commit it.</p>

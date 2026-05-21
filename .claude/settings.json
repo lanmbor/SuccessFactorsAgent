@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/I509621/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/**)",
+      "Bash(ls \"C:/Users/I509621/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/../../\")",
+      "Read(//c/Users/I509621/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/**)",
+      "Bash(C:/Users/I509621/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh --project-dir 'c:/Users/I509621/OneDrive - SAP SE/Project/Workon/SF Agent')"
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+<h2>OData Tool Design</h2>
+<p class="subtitle">Section 2 of 4 — How the agent interacts with SuccessFactors</p>
+
+<div class="section">
+  <h3>The Problem with "One Tool Per Entity"</h3>
+  <p style="color:#94a3b8">SuccessFactors has <strong style="color:#f87171">1000+ entity types</strong> in its OData metadata. Defining one tool per entity would overflow the LLM's context window and make the system unmaintainable.</p>
+  <p style="color:#94a3b8">Instead, we define <strong style="color:#34d399">6 general-purpose tools</strong> that cover all entities dynamically.</p>
+</div>
+
+<div class="section">
+  <h3>The 6 OData Tools</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+    <div style="background:#1e293b;border-left:3px solid #38bdf8;border-radius:6px;padding:14px">
+      <div style="color:#38bdf8;font-family:monospace;font-weight:bold">sf_list_entities()</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">Returns all available entity sets from $metadata. The agent calls this first to discover what's available when it's unsure.</div>
+    </div>
+
+    <div style="background:#1e293b;border-left:3px solid #38bdf8;border-radius:6px;padding:14px">
+      <div style="color:#38bdf8;font-family:monospace;font-weight:bold">sf_get_schema(entity_name)</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">Returns field names, types, and key properties for a specific entity. Used before querying to know what fields to select or filter on.</div>
+    </div>
+
+    <div style="background:#1e293b;border-left:3px solid #34d399;border-radius:6px;padding:14px">
+      <div style="color:#34d399;font-family:monospace;font-weight:bold">sf_query(entity, filter?, select?,<br>&nbsp;&nbsp;top?, skip?, expand?, orderby?)</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">GET request with full OData query parameter support. Handles pagination automatically via <code>top</code> + <code>skip</code>.</div>
+    </div>
+
+    <div style="background:#1e293b;border-left:3px solid #a78bfa;border-radius:6px;padding:14px">
+      <div style="color:#a78bfa;font-family:monospace;font-weight:bold">sf_create(entity_name, data)</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">POST to create a new record. Returns the created entity with its generated key.</div>
+    </div>
+
+    <div style="background:#1e293b;border-left:3px solid #fb923c;border-radius:6px;padding:14px">
+      <div style="color:#fb923c;font-family:monospace;font-weight:bold">sf_update(entity_name, key, data)</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">PATCH to update specific fields on an existing record. Key can be simple or composite (e.g., userId='U001',startDate=datetime'...').</div>
+    </div>
+
+    <div style="background:#1e293b;border-left:3px solid #f472b6;border-radius:6px;padding:14px">
+      <div style="color:#f472b6;font-family:monospace;font-weight:bold">sf_delete(entity_name, key)</div>
+      <div style="color:#94a3b8;font-size:13px;margin-top:6px">DELETE a record by key. Agent will ask for confirmation before calling this in most workflows.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Example Agent Reasoning Flow</h3>
+  <div style="background:#0f172a;padding:16px;border-radius:8px;font-family:monospace;font-size:12px;line-height:1.8">
+    <div style="color:#64748b">User: "Show me all employees in the Engineering department"</div>
+    <div style="color:#475569;margin-top:8px">───────────────────────────────────────────────</div>
+    <div style="color:#94a3b8;margin-top:8px">🤔 Think: I need employee data. Let me check the schema first.</div>
+    <div style="color:#38bdf8">→ sf_get_schema("PerPerson")</div>
+    <div style="color:#94a3b8">🤔 Think: Found userId, firstName, lastName. Department is on EmpJob.</div>
+    <div style="color:#38bdf8">→ sf_query("EmpJob", filter="department eq 'Engineering'",<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;select="userId,jobTitle", expand="empInfo")</div>
+    <div style="color:#34d399">✅ Returns: 12 employees with names, titles</div>
+    <div style="color:#94a3b8">🤔 Think: Got results. Format for user.</div>
+    <div style="color:#e2e8f0">Response: "Found 12 employees in Engineering: ..."</div>
+  </div>
+</div>
+
+<p style="color:#94a3b8;margin-top:24px;text-align:center">Does this tool design make sense? Reply in the terminal — Section 3 (Auth + Config) is next.</p>

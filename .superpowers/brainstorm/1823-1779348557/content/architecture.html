@@ -1,0 +1,76 @@
+<h2>System Architecture</h2>
+<p class="subtitle">Section 1 of 4 — Overall structure of the SF Agent</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Component Overview</div>
+    <div class="mockup-body" style="font-family:monospace;font-size:13px;line-height:1.8;padding:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Frontend</div>
+          <div style="color:#38bdf8;font-weight:bold;margin:8px 0">Chainlit UI</div>
+          <div style="color:#64748b;font-size:12px">Browser chat<br>Conversation history<br>Tool result rendering</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Bot Adapters</div>
+          <div style="color:#a78bfa;font-weight:bold;margin:8px 0">Telegram / WhatsApp</div>
+          <div style="color:#64748b;font-size:12px">Webhook listeners<br>Message adapters<br>Same agent core</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Configuration</div>
+          <div style="color:#34d399;font-weight:bold;margin:8px 0">.env / config.yaml</div>
+          <div style="color:#64748b;font-size:12px">LLM provider + key<br>SF credentials<br>Bot tokens</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;color:#475569;margin:8px 0">↓ ↓ ↓ all flow through ↓ ↓ ↓</div>
+
+      <div style="background:#0f172a;border:2px solid #0ea5e9;border-radius:8px;padding:16px;margin:12px 0;text-align:center">
+        <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Agent Core</div>
+        <div style="color:#0ea5e9;font-weight:bold;font-size:16px;margin:8px 0">agent/core.py</div>
+        <div style="color:#64748b;font-size:12px">ReAct loop (think → tool call → observe → respond) · Conversation memory · System prompt with SF context</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">LLM Layer</div>
+          <div style="color:#fb923c;font-weight:bold;margin:8px 0">LiteLLM</div>
+          <div style="color:#64748b;font-size:12px">OpenAI / Anthropic / Azure<br>Gemini / Ollama / 100+ more<br>Unified tool-calling interface</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Data Layer</div>
+          <div style="color:#f472b6;font-weight:bold;margin:8px 0">SF OData Client</div>
+          <div style="color:#64748b;font-size:12px">OAuth2 SAML Bearer auth<br>Query / Create / Update / Delete<br>Schema discovery</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;color:#475569;margin:8px 0">↓</div>
+
+      <div style="background:#1e293b;border:1px solid #16a34a;border-radius:8px;padding:12px;text-align:center">
+        <div style="color:#16a34a;font-weight:bold">SAP SuccessFactors OData API</div>
+        <div style="color:#64748b;font-size:12px">Full read/write access · OAuth2 SAML Bearer · All entity sets</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Project Layout</h3>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:13px;line-height:1.6">sf-agent/
+├── app.py                  ← Chainlit entry point
+├── agent/
+│   ├── core.py             ← ReAct loop, LiteLLM calls, tool dispatch
+│   └── tools.py            ← OData tool definitions (6 tools)
+├── sf/
+│   ├── auth.py             ← OAuth2 SAML Bearer token handling
+│   └── client.py           ← OData HTTP client
+├── bots/
+│   ├── telegram_bot.py     ← Telegram webhook adapter
+│   └── whatsapp_bot.py     ← WhatsApp webhook adapter
+├── config.py               ← Config loading from .env
+├── .env.example            ← Credential template
+├── requirements.txt
+└── docker-compose.yml      ← Local + cloud deployment</pre>
+</div>
+
+<p style="color:#94a3b8;margin-top:24px;text-align:center">Does this architecture look right? Let me know in the terminal — I'll move to Section 2 (OData Tools) next.</p>

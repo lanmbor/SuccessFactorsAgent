@@ -1,0 +1,76 @@
+<h2>Authentication & Configuration</h2>
+<p class="subtitle">Section 3 of 4 — Credentials, tokens, and setup</p>
+
+<div class="section">
+  <h3>SuccessFactors Auth — OAuth2 SAML Bearer</h3>
+  <p style="color:#94a3b8;font-size:13px">SF uses a 2-step handshake. The agent handles this automatically — users never see it.</p>
+  <div style="background:#0f172a;padding:16px;border-radius:8px;font-family:monospace;font-size:12px;line-height:2;margin-top:12px">
+    <div><span style="color:#64748b">Step 1 </span><span style="color:#e2e8f0"> Build a SAML assertion, sign it with your X.509 private key</span></div>
+    <div><span style="color:#64748b">Step 2 </span><span style="color:#e2e8f0"> POST assertion → SF token endpoint → receive OAuth2 access token</span></div>
+    <div><span style="color:#64748b">Step 3 </span><span style="color:#e2e8f0"> Attach token to every API call: <span style="color:#38bdf8">Authorization: Bearer &lt;token&gt;</span></span></div>
+    <div><span style="color:#64748b">Auto   </span><span style="color:#e2e8f0"> Token cached in memory, refreshed before expiry (default TTL: 12h)</span></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>.env File — Everything in One Place</h3>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:12px;line-height:1.8"># ── SuccessFactors ──────────────────────────────
+SF_BASE_URL=https://api4.successfactors.com   # your SF API host
+SF_COMPANY_ID=your_company_id
+SF_USER_ID=admin_user_id
+SF_CLIENT_ID=your_api_key_from_sf
+SF_PRIVATE_KEY_PATH=./certs/private_key.pem   # X.509 private key
+
+# ── LLM Provider ────────────────────────────────
+LLM_PROVIDER=openai          # openai | anthropic | azure | ollama | gemini | ...
+LLM_MODEL=gpt-4o             # model name for the chosen provider
+LLM_API_KEY=sk-...           # API key (leave blank for local Ollama)
+LLM_API_BASE=                # optional: custom endpoint (Azure, proxy, etc.)
+
+# ── Bot Integrations (optional) ─────────────────
+TELEGRAM_BOT_TOKEN=          # from @BotFather
+WHATSAPP_TOKEN=              # Meta WhatsApp Business API token
+WHATSAPP_PHONE_ID=           # Meta phone number ID</pre>
+</div>
+
+<div class="section">
+  <h3>LLM Provider Examples</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div style="background:#1e293b;border-radius:6px;padding:12px">
+      <div style="color:#34d399;font-weight:bold;margin-bottom:6px">OpenAI</div>
+      <pre style="color:#94a3b8;font-size:11px;margin:0">LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o
+LLM_API_KEY=sk-...</pre>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:12px">
+      <div style="color:#a78bfa;font-weight:bold;margin-bottom:6px">Anthropic</div>
+      <pre style="color:#94a3b8;font-size:11px;margin:0">LLM_PROVIDER=anthropic
+LLM_MODEL=claude-opus-4-7
+LLM_API_KEY=sk-ant-...</pre>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:12px">
+      <div style="color:#fb923c;font-weight:bold;margin-bottom:6px">Local (Ollama)</div>
+      <pre style="color:#94a3b8;font-size:11px;margin:0">LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+LLM_API_BASE=http://localhost:11434</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Docker Deployment</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1e293b;border-left:3px solid #34d399;border-radius:6px;padding:12px">
+      <div style="color:#34d399;font-weight:bold;font-size:13px">Local</div>
+      <pre style="color:#94a3b8;font-size:12px;margin:6px 0">docker compose up</pre>
+      <div style="color:#64748b;font-size:12px">Opens Chainlit at localhost:8000<br>Bots connect via polling</div>
+    </div>
+    <div style="background:#1e293b;border-left:3px solid #38bdf8;border-radius:6px;padding:12px">
+      <div style="color:#38bdf8;font-weight:bold;font-size:13px">Cloud (e.g. Azure / AWS)</div>
+      <pre style="color:#94a3b8;font-size:12px;margin:6px 0">docker compose up -d</pre>
+      <div style="color:#64748b;font-size:12px">Public URL for Chainlit<br>Webhooks for Telegram/WhatsApp</div>
+    </div>
+  </div>
+</div>
+
+<p style="color:#94a3b8;margin-top:24px;text-align:center">Does this config approach look right? Last section (Bot Integrations) is next.</p>

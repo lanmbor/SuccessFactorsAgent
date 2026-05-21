@@ -1,0 +1,67 @@
+<h2>Three Approaches for SF Agent</h2>
+<p class="subtitle">Pick the architecture that fits your priorities</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>LangChain + Chainlit</h3>
+      <p><strong>Stack:</strong> LangChain · Chainlit UI · LangChain SF tools</p>
+      <p>LangChain handles LLM switching and agent logic. Chainlit gives you a polished browser chat UI with zero frontend work. SF OData calls are wrapped as LangChain tools.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Fastest to build a working chat UI</li>
+          <li>LangChain supports 50+ LLM providers out of the box</li>
+          <li>Large community, many examples</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>LangChain abstractions can be hard to debug</li>
+          <li>Chainlit couples your UI to the framework</li>
+          <li>Heavy dependency tree</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>LiteLLM + Chainlit ⭐ Recommended</h3>
+      <p><strong>Stack:</strong> LiteLLM · Chainlit UI · FastAPI · Custom SF OData client</p>
+      <p>LiteLLM provides a lightweight OpenAI-compatible interface to 100+ LLM providers. Chainlit handles the browser chat UI. A small set of general-purpose OData tools (query, create, update, delete, schema-lookup) let the agent work with any SF entity without tool explosion.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Lightweight — no heavy framework lock-in</li>
+          <li>LiteLLM is battle-tested for multi-provider support</li>
+          <li>Beautiful chat UI from Chainlit, no frontend code</li>
+          <li>General OData tools scale to all SF entities</li>
+          <li>Easy to add Telegram / WhatsApp bots alongside</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Slightly more glue code than full LangChain</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>LiteLLM + Custom FastAPI UI</h3>
+      <p><strong>Stack:</strong> LiteLLM · FastAPI · WebSocket · Plain HTML/JS chat UI</p>
+      <p>Fully custom — no UI framework dependencies. FastAPI serves both the chat WebSocket and the REST API for Telegram/WhatsApp webhooks. Maximum flexibility, nothing hidden.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Full control over every layer</li>
+          <li>No UI framework constraints</li>
+          <li>Single FastAPI service handles web + bots</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>More code to write for the chat UI</li>
+          <li>No built-in chat history, auth, or file handling</li>
+          <li>Longer time to a working prototype</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>
