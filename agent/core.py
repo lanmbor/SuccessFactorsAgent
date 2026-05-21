@@ -28,14 +28,15 @@ class Agent:
             self._sessions[session_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
         return self._sessions[session_id]
 
-    async def _dispatch(self, name: str, args: dict) -> str:
+    async def _dispatch(self, name: str, args: dict[str, object]) -> str:
         if name == "sf_list_entities":
             return await sf_list_entities(self._client)
         if name == "sf_get_schema":
             return await sf_get_schema(self._client, args["entity_name"])
         if name == "sf_query":
-            entity = args.pop("entity_name")
-            return await sf_query(self._client, entity, **args)
+            entity = args["entity_name"]
+            remaining = {k: v for k, v in args.items() if k != "entity_name"}
+            return await sf_query(self._client, entity, **remaining)
         if name == "sf_create":
             return await sf_create(self._client, args["entity_name"], args["data"])
         if name == "sf_update":
@@ -81,5 +82,3 @@ class Agent:
                 args = json.loads(tc.function.arguments)
                 result = await self._dispatch(tc.function.name, args)
                 history.append({"role": "tool", "tool_call_id": tc.id, "content": result})
-
-            kwargs["messages"] = history
