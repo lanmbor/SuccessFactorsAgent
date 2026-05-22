@@ -2,9 +2,6 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-load_dotenv()
-
-
 @dataclass
 class Config:
     SF_BASE_URL: str = ""
@@ -12,6 +9,7 @@ class Config:
     SF_USER_ID: str = ""
     SF_CLIENT_ID: str = ""
     SF_PRIVATE_KEY_PATH: str = ""
+    SF_CERTIFICATE_PATH: str = ""
     LLM_PROVIDER: str = ""
     LLM_MODEL: str = ""
     LLM_API_KEY: str = ""
@@ -27,12 +25,14 @@ class Config:
 
 
 def load_config() -> Config:
+    load_dotenv()
     return Config(
         SF_BASE_URL=os.environ["SF_BASE_URL"],
         SF_COMPANY_ID=os.environ["SF_COMPANY_ID"],
         SF_USER_ID=os.environ["SF_USER_ID"],
         SF_CLIENT_ID=os.environ["SF_CLIENT_ID"],
         SF_PRIVATE_KEY_PATH=os.environ["SF_PRIVATE_KEY_PATH"],
+        SF_CERTIFICATE_PATH=os.environ.get("SF_CERTIFICATE_PATH", ""),
         LLM_PROVIDER=os.environ["LLM_PROVIDER"],
         LLM_MODEL=os.environ["LLM_MODEL"],
         LLM_API_KEY=os.getenv("LLM_API_KEY", ""),

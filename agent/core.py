@@ -14,7 +14,10 @@ When asked for data:
 2. Call sf_get_schema(entity_name) to learn the correct field names before filtering.
 3. Call sf_query() with the appropriate parameters.
 
-Before calling sf_create(), sf_update(), or sf_delete(), summarize the operation and confirm with the user before proceeding."""
+Before calling sf_create(), sf_update(), or sf_delete(), summarize the operation and confirm with the user before proceeding.
+
+When user ask you to check "my" stuff like my employee data,  or my Todo list, please be noted, the logged in user is the one configuired in the .env file, so you should display that user's information or todo assigned to that user only
+"""
 
 MAX_TOOL_ROUNDS = 20
 
@@ -50,7 +53,7 @@ class Agent:
     async def chat(self, session_id: str, message: str) -> str:
         history = self._history(session_id)
         history.append({"role": "user", "content": message})
-        model = f"{self._config.LLM_PROVIDER}/{self._config.LLM_MODEL}"
+        model = f"{self._config.LLM_PROVIDER.lower()}/{self._config.LLM_MODEL}"
         kwargs: dict = {
             "model": model,
             "messages": history,

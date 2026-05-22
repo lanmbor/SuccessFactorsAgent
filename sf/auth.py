@@ -6,78 +6,58 @@ import httpx
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from lxml import etree
-from signxml import XMLSigner
-from signxml.algorithms import SignatureConstructionMethod
+from signxml import XMLSigner, methods
 from config import Config
 
-SAML = "urn:oasis:names:tc:SAML:2.0:assertion"
-BEARER = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
-PASSWORD_CLASS = "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"
 
-
-def build_assertion(config: Config) -> tuple[etree._Element, str]:
-    assertion_id = "_" + uuid.uuid4().hex
+def build_assertion(config: Config) -> str:
     now = datetime.now(timezone.utc)
+    not_after = now + timedelta(minutes=5)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
+    assertion_id = "_" + str(uuid.uuid4())
     token_url = f"{config.SF_BASE_URL}/oauth/token"
 
-    assertion = etree.Element(
-        f"{{{SAML}}}Assertion",
-        attrib={
-            "ID": assertion_id,
-            "Version": "2.0",
-            "IssueInstant": now.strftime(fmt),
-        },
-        nsmap={"saml": SAML},
-    )
+    saml_xml = f"""<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion"
+      ID="{assertion_id}" IssueInstant="{now.strftime(fmt)}" Version="2.0">
+      <saml2:Issuer>{config.SF_CLIENT_ID}</saml2:Issuer>
+      <saml2:Subject>
+        <saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">{config.SF_USER_ID}</saml2:NameID>
+        <saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+          <saml2:SubjectConfirmationData NotOnOrAfter="{not_after.strftime(fmt)}" Recipient="{token_url}"/>
+        </saml2:SubjectConfirmation>
+      </saml2:Subject>
+      <saml2:Conditions NotBefore="{now.strftime(fmt)}" NotOnOrAfter="{not_after.strftime(fmt)}">
+        <saml2:AudienceRestriction><saml2:Audience>{token_url}</saml2:Audience></saml2:AudienceRestriction>
+      </saml2:Conditions>
+      <saml2:AuthnStatement AuthnInstant="{now.strftime(fmt)}">
+        <saml2:AuthnContext>
+          <saml2:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified</saml2:AuthnContextClassRef>
+        </saml2:AuthnContext>
+      </saml2:AuthnStatement>
+      <saml2:AttributeStatement>
+        <saml2:Attribute Name="client_id">
+          <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:type="xs:string">{config.SF_CLIENT_ID}</saml2:AttributeValue>
+        </saml2:Attribute>
+      </saml2:AttributeStatement>
+    </saml2:Assertion>"""
 
-    issuer = etree.SubElement(assertion, f"{{{SAML}}}Issuer")
-    issuer.text = config.SF_CLIENT_ID
-
-    subject = etree.SubElement(assertion, f"{{{SAML}}}Subject")
-    name_id = etree.SubElement(subject, f"{{{SAML}}}NameID")
-    name_id.text = f"{config.SF_USER_ID}@{config.SF_COMPANY_ID}"
-    etree.SubElement(subject, f"{{{SAML}}}SubjectConfirmation", attrib={"Method": BEARER})
-
-    conditions = etree.SubElement(
-        assertion,
-        f"{{{SAML}}}Conditions",
-        attrib={
-            "NotBefore": (now - timedelta(minutes=5)).strftime(fmt),
-            "NotOnOrAfter": (now + timedelta(hours=1)).strftime(fmt),
-        },
-    )
-    audience_restriction = etree.SubElement(conditions, f"{{{SAML}}}AudienceRestriction")
-    audience = etree.SubElement(audience_restriction, f"{{{SAML}}}Audience")
-    audience.text = token_url
-
-    authn_stmt = etree.SubElement(
-        assertion,
-        f"{{{SAML}}}AuthnStatement",
-        attrib={"AuthnInstant": now.strftime(fmt)},
-    )
-    authn_ctx = etree.SubElement(authn_stmt, f"{{{SAML}}}AuthnContext")
-    authn_ctx_ref = etree.SubElement(authn_ctx, f"{{{SAML}}}AuthnContextClassRef")
-    authn_ctx_ref.text = PASSWORD_CLASS
-
-    return assertion, assertion_id
+    return saml_xml
 
 
-def sign_assertion(
-    assertion: etree._Element, assertion_id: str, private_key_pem: bytes
-) -> str:
+def sign_assertion(saml_xml: str, private_key_pem: bytes, certificate_pem: bytes) -> str:
+    root = etree.fromstring(saml_xml.encode())
     signer = XMLSigner(
-        method=SignatureConstructionMethod.enveloped,
-        signature_algorithm="rsa-sha256",
+        method=methods.enveloped,
         digest_algorithm="sha256",
         c14n_algorithm="http://www.w3.org/2001/10/xml-exc-c14n#",
     )
-    signed = signer.sign(assertion, key=private_key_pem, reference_uri=f"#{assertion_id}")
-    return etree.tostring(signed, encoding="unicode")
+    signed_root = signer.sign(root, key=private_key_pem, cert=certificate_pem)
+    return base64.b64encode(etree.tostring(signed_root, xml_declaration=False)).decode()
 
 
-async def exchange_token(config: Config, signed_xml: str) -> tuple[str, datetime]:
-    assertion_b64 = base64.b64encode(signed_xml.encode()).decode()
+async def exchange_token(config: Config, assertion_b64: str) -> tuple[str, datetime]:
     async with httpx.AsyncClient() as client:
         r = await client.post(
             f"{config.SF_BASE_URL}/oauth/token",
@@ -100,7 +80,8 @@ class SFAuth:
         self._config = config
         self._token: str | None = None
         self._expires_at: datetime | None = None
-        self._private_key_pem: bytes = Path(config.SF_PRIVATE_KEY_PATH).read_bytes()
+        self._private_key_pem: bytes | None = None
+        self._certificate_pem: bytes | None = None
         self._lock = asyncio.Lock()
 
     async def get_token(self) -> str:
@@ -108,7 +89,11 @@ class SFAuth:
             if self._token and self._expires_at:
                 if datetime.now(timezone.utc) < self._expires_at - timedelta(minutes=5):
                     return self._token
-            assertion, assertion_id = build_assertion(self._config)
-            signed_xml = sign_assertion(assertion, assertion_id, self._private_key_pem)
-            self._token, self._expires_at = await exchange_token(self._config, signed_xml)
+            if self._private_key_pem is None:
+                self._private_key_pem = Path(self._config.SF_PRIVATE_KEY_PATH).read_bytes()
+            if self._certificate_pem is None:
+                self._certificate_pem = Path(self._config.SF_CERTIFICATE_PATH).read_bytes()
+            saml_xml = build_assertion(self._config)
+            assertion_b64 = sign_assertion(saml_xml, self._private_key_pem, self._certificate_pem)
+            self._token, self._expires_at = await exchange_token(self._config, assertion_b64)
             return self._token

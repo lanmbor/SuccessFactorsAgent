@@ -43,17 +43,24 @@ class SFClient:
     async def create(self, entity: str, data: dict) -> dict:
         headers = await self._auth_headers()
         headers["Content-Type"] = "application/json"
+        payload = dict(data)
+        payload["__metadata"] = {"type": f"SFOData.{entity}"}
         r = await self._http.post(
-            f"{self._base_url}/odata/v2/{entity}", headers=headers, json=data
+            f"{self._base_url}/odata/v2/upsert", headers=headers, json=payload
         )
         r.raise_for_status()
-        return r.json()
+        return r.json() if r.content else {}
 
     async def update(self, entity: str, key: str, data: dict) -> None:
         headers = await self._auth_headers()
         headers["Content-Type"] = "application/json"
-        r = await self._http.patch(
-            f"{self._base_url}/odata/v2/{entity}({key})", headers=headers, json=data
+        payload = dict(data)
+        payload["__metadata"] = {
+            "type": f"SFOData.{entity}",
+            "uri": f"{entity}({key})",
+        }
+        r = await self._http.post(
+            f"{self._base_url}/odata/v2/upsert", headers=headers, json=payload
         )
         r.raise_for_status()
 

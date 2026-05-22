@@ -1,5 +1,4 @@
 import pytest
-from dataclasses import dataclass
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from config import Config

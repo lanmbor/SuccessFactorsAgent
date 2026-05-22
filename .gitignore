@@ -1,0 +1,28 @@
+.env
+Readme_Manual.MD
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Chainlit
+.files/
+
+# Certs (contain private keys — never commit)
+certs/
+
+# Claude Code & dev tooling
+.claude/
+.superpowers/
+.playwright-mcp/
+docs/superpowers/
+
+# Test cache
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
