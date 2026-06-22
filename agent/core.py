@@ -1,25 +1,39 @@
 # agent/core.py
 import json
 import litellm
+from pathlib import Path
 from typing import Any
 from agent.tools import TOOLS, sf_list_entities, sf_get_schema, sf_query, sf_create, sf_update, sf_delete
 from sf.client import SFClient
 from config import Config
 
-SYSTEM_PROMPT = """You are an AI assistant with full administrative access to SAP SuccessFactors.
-Use the provided tools to query and update any data in the system.
-
-When asked for data:
-1. If unsure which entity to use, call sf_list_entities() first.
-2. Call sf_get_schema(entity_name) to learn the correct field names before filtering.
-3. Call sf_query() with the appropriate parameters.
-
-Before calling sf_create(), sf_update(), or sf_delete(), summarize the operation and confirm with the user before proceeding.
-
-When user ask you to check "my" stuff like my employee data,  or my Todo list, please be noted, the logged in user is the one configuired in the .env file, so you should display that user's information or todo assigned to that user only
-"""
+_PROMPT_FILE = Path(__file__).parent.parent / "prompts" / "system.md"
+_LOCAL_PROMPT_FILE = Path(__file__).parent.parent / "prompts" / "system_local.md"
+SYSTEM_PROMPT = _PROMPT_FILE.read_text(encoding="utf-8").strip()
+if _LOCAL_PROMPT_FILE.exists():
+    _local = _LOCAL_PROMPT_FILE.read_text(encoding="utf-8").strip()
+    if _local:
+        SYSTEM_PROMPT += "\n\n" + _local
 
 MAX_TOOL_ROUNDS = 20
+MAX_TOOL_RESPONSE_CHARS = 20_000  # ~5k tokens — truncate oversized tool results
+MAX_HISTORY_MESSAGES = 40         # keep system prompt + last 40 messages
+
+
+def _truncate(text: str) -> str:
+    if len(text) <= MAX_TOOL_RESPONSE_CHARS:
+        return text
+    kept = text[:MAX_TOOL_RESPONSE_CHARS]
+    return kept + f"\n\n[...truncated, {len(text) - MAX_TOOL_RESPONSE_CHARS} chars omitted]"
+
+
+def _trim_history(history: list[dict]) -> list[dict]:
+    """Keep the system prompt + the most recent MAX_HISTORY_MESSAGES messages."""
+    system = [m for m in history if m["role"] == "system"]
+    rest = [m for m in history if m["role"] != "system"]
+    if len(rest) > MAX_HISTORY_MESSAGES:
+        rest = rest[-MAX_HISTORY_MESSAGES:]
+    return system + rest
 
 
 class Agent:
@@ -66,6 +80,7 @@ class Agent:
             kwargs["api_base"] = self._config.LLM_API_BASE
 
         for _ in range(MAX_TOOL_ROUNDS):
+            kwargs["messages"] = _trim_history(history)
             response = await litellm.acompletion(**kwargs)
             msg = response.choices[0].message
             assistant_entry: dict = {"role": "assistant"}
@@ -93,5 +108,6 @@ class Agent:
                     args = {}
                 else:
                     result = await self._dispatch(tc.function.name, args)
+                result = _truncate(result)
                 history.append({"role": "tool", "tool_call_id": tc.id, "content": result})
         return "Agent exceeded maximum tool-call rounds without a final response."

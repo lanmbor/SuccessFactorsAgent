@@ -58,7 +58,7 @@ def sign_assertion(saml_xml: str, private_key_pem: bytes, certificate_pem: bytes
 
 
 async def exchange_token(config: Config, assertion_b64: str) -> tuple[str, datetime]:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
         r = await client.post(
             f"{config.SF_BASE_URL}/oauth/token",
             data={

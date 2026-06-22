@@ -2,23 +2,29 @@
 import httpx
 from sf.auth import SFAuth
 
+# SF metadata endpoint is large; general API calls can also be slow
+_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=30.0, pool=10.0)
+
 
 class SFClient:
     def __init__(self, auth: SFAuth, base_url: str) -> None:
         self._auth = auth
         self._base_url = base_url.rstrip("/")
-        self._http = httpx.AsyncClient()
+        self._http = httpx.AsyncClient(timeout=_TIMEOUT)
+        self._metadata_cache: str | None = None
 
     async def _auth_headers(self) -> dict[str, str]:
         token = await self._auth.get_token()
         return {"Authorization": f"Bearer {token}", "Accept": "application/json"}
 
     async def get_metadata(self) -> str:
-        headers = await self._auth_headers()
-        headers["Accept"] = "application/xml"
-        r = await self._http.get(f"{self._base_url}/odata/v2/$metadata", headers=headers)
-        r.raise_for_status()
-        return r.text
+        if self._metadata_cache is None:
+            headers = await self._auth_headers()
+            headers["Accept"] = "application/xml"
+            r = await self._http.get(f"{self._base_url}/odata/v2/$metadata", headers=headers)
+            r.raise_for_status()
+            self._metadata_cache = r.text
+        return self._metadata_cache
 
     async def query(self, entity: str, **kwargs) -> dict:
         headers = await self._auth_headers()
